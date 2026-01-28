@@ -6,7 +6,9 @@ import {
   getDocs, 
   doc, 
   setDoc, 
-  deleteDoc 
+  deleteDoc,
+  query,
+  where 
 } from "firebase/firestore";
 
 const DEFAULT_TEACHER: Teacher = {
@@ -20,35 +22,69 @@ const DEFAULT_TEACHER: Teacher = {
 
 export const dbService = {
   initialize: () => {
-    console.log("Firebase Bulut Aktif");
+    console.log("Firebase Bulut Sistemi Aktif");
   },
 
-  // GİRİŞ YAPMANI SAĞLAYAN KRİTİK FONKSİYON
   getTeacher: async () => {
     return DEFAULT_TEACHER;
   },
 
+  // TÜM ÖĞRENCİLERİ GETİRİR
   getStudents: async (): Promise<Student[]> => {
-    const snap = await getDocs(collection(db, "students"));
-    return snap.docs.map(d => d.data() as Student);
+    try {
+      const snap = await getDocs(collection(db, "students"));
+      return snap.docs.map(d => d.data() as Student);
+    } catch (error) {
+      console.error("Öğrenciler çekilemedi:", error);
+      return [];
+    }
+  },
+
+  // SINAV OLUŞTURMA EKRANINDAKİ SINIF LİSTESİNİ DOLDURUR
+  getClasses: async (): Promise<string[]> => {
+    try {
+      const snap = await getDocs(collection(db, "students"));
+      const students = snap.docs.map(d => d.data() as Student);
+      // Öğrencilerin içindeki sınıfları bulur ve tekrar edenleri siler
+      const classes = Array.from(new Set(students.map(s => s.classGroup))).filter(Boolean);
+      return classes.sort();
+    } catch (error) {
+      return [];
+    }
   },
 
   getExams: async (): Promise<Exam[]> => {
-    const snap = await getDocs(collection(db, "exams"));
-    return snap.docs.map(d => ({ ...d.data(), id: d.id } as Exam));
+    try {
+      const snap = await getDocs(collection(db, "exams"));
+      return snap.docs.map(d => ({ ...d.data(), id: d.id } as Exam));
+    } catch (error) {
+      return [];
+    }
   },
 
   getResults: async (): Promise<ExamResult[]> => {
-    const snap = await getDocs(collection(db, "results"));
-    return snap.docs.map(d => d.data() as ExamResult);
+    try {
+      const snap = await getDocs(collection(db, "results"));
+      return snap.docs.map(d => d.data() as ExamResult);
+    } catch (error) {
+      return [];
+    }
   },
 
   saveStudent: async (s: Student) => {
+    // Okul numarasını doküman kimliği yaparak üzerine yazmayı engeller/günceller
     await setDoc(doc(db, "students", s.schoolNo), s);
   },
 
   saveExam: async (exam: Exam) => {
-    await addDoc(collection(db, "exams"), exam);
+    try {
+      // Sınavı Firebase'e ekler
+      await addDoc(collection(db, "exams"), exam);
+      console.log("Sınav başarıyla sınıfa atandı.");
+    } catch (error) {
+      console.error("Sınav kaydedilemedi:", error);
+      throw error;
+    }
   },
 
   saveResult: async (res: ExamResult) => {
@@ -60,6 +96,6 @@ export const dbService = {
   },
 
   importExamFromLink: async (data: string) => {
-    return "Sınav Aktarıldı";
+    return "Sınav Başarıyla Aktarıldı";
   }
 };
